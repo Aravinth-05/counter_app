@@ -1,0 +1,100 @@
+# docker-compose.yaml
+#
+# This file defines ALL your microservices and how they connect.
+# One command (docker-compose up) starts everything.
+#
+# Instead of:
+#   - Installing PostgreSQL manually
+#   - Running FastAPI in one terminal
+#   - Running Streamlit in another terminal
+#
+# You just run: docker-compose up --build
+#
+# Docker Compose handles:
+#   - Downloading PostgreSQL image
+#   - Building your API and frontend images from their Dockerfiles
+#   - Creating a private network so they can talk to each other
+#   - Starting everything in the right order
+
+services:
+
+  # ---------- SERVICE 1: PostgreSQL Database ----------
+  db:
+    # Use the official PostgreSQL 16 image (Alpine = tiny Linux)
+    image: postgres:16-alpine
+
+    # Environment variables that the PostgreSQL image reads on first start
+    # to create the database and user automatically.
+    # Remember Steps 2 and 3 from Phase 1? This replaces ALL of that.
+    environment:
+      POSTGRES_DB: counter_db
+      POSTGRES_USER: counter_user
+      POSTGRES_PASSWORD: counter_pass
+
+    # Mount init.sql into the special directory that PostgreSQL
+    # auto-runs on first startup. No need to run psql manually.
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data  # Persist data across restarts
+
+    # Expose port 5432 to other containers (not to your machine)
+    ports:
+      - "5432:5432"
+
+    # Health check: Docker will keep checking if PostgreSQL is ready
+    # Other services wait for this before starting (see depends_on below)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U counter_user -d counter_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------- SERVICE 2: FastAPI Backend ----------
+  api:
+    # Build from the Dockerfile in the ./api directory
+    build: ./api
+
+    # Environment variables the app reads (via config.py)
+    # Notice DB_HOST is "db" -- that's the service name above.
+    # Docker Compose creates DNS entries so containers find each other by name.
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: counter_db
+      DB_USER: counter_user
+      DB_PASSWORD: counter_pass
+
+    # Map port 8000 on your machine to port 8000 in the container
+    # So http://localhost:8000 still works
+    ports:
+      - "8000:8000"
+
+    # Don't start until PostgreSQL is healthy
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ---------- SERVICE 3: Streamlit Frontend ----------
+  frontend:
+    # Build from the Dockerfile in the ./frontend directory
+    build: ./frontend
+
+    # API_URL tells Streamlit where to find FastAPI.
+    # "api" is the service name -- Docker DNS resolves it to the API container.
+    # NOT "localhost" -- because inside a container, localhost means itself.
+    environment:
+      API_URL: http://api:8000
+
+    # Map port 8501 on your machine to 8501 in the container
+    ports:
+      - "8501:8501"
+
+    # Don't start until the API is running
+    depends_on:
+      - api
+
+# Named volume: stores PostgreSQL data outside the container.
+# If you run "docker-compose down" and "docker-compose up" again,
+# your counter value is still there.
+volumes:
+  postgres_data:
