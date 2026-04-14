@@ -35,6 +35,9 @@ COPY app/ ./app/
 EXPOSE 8000
 
 # STEP 7: The command to run when the container starts
-# This is the same uvicorn command you ran manually in Phase 1,
-# but without --reload (no auto-restart in production).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# ddtrace-run wraps uvicorn and automatically:
+#   - Traces every incoming HTTP request
+#   - Traces every database query
+#   - Sends all traces to the Datadog Agent
+# Without ddtrace-run, you'd need to manually instrument every function.
+CMD ["ddtrace-run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

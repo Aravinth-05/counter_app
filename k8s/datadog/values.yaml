@@ -1,0 +1,66 @@
+# values.yaml -- Datadog Agent Helm chart configuration
+#
+# The Datadog Agent runs as a DaemonSet in K8s.
+# DaemonSet = "run one copy on EVERY node in the cluster"
+# (You have 1 node, so 1 agent. In production with 50 nodes, 50 agents.)
+#
+# The agent sits on each node and:
+#   - Collects CPU, memory, disk, network metrics from the node
+#   - Discovers all pods running on that node
+#   - Receives APM traces from your app (FastAPI sends them)
+#   - Tails logs from all containers
+#   - Sends everything to Datadog cloud
+#
+# You install this using Helm:
+#   helm repo add datadog https://helm.datadoghq.com
+#   helm repo update
+#   helm install datadog-agent datadog/datadog -f k8s/datadog/values.yaml -n counter-app
+
+datadog:
+  # Your Datadog API key (get it from https://app.datadoghq.com/organization-settings/api-keys)
+  # REPLACE THIS with your actual key
+  apiKey: "YOUR_DATADOG_API_KEY_HERE"
+
+  # Tag everything with our app name and environment
+  tags:
+    - "env:local"
+    - "project:counter-app"
+
+  # ---------- APM (Application Performance Monitoring) ----------
+  # Traces: see how long each API request takes, which endpoints are slow,
+  # and how the request flows from Streamlit -> FastAPI -> PostgreSQL
+  apm:
+    portEnabled: true          # Listen for traces on port 8126
+    enabled: true
+
+  # ---------- LOG COLLECTION ----------
+  # Collects stdout/stderr from all containers
+  # You'll see FastAPI logs and PostgreSQL logs in Datadog
+  logs:
+    enabled: true
+    containerCollectAll: true  # Collect from ALL containers, not just tagged ones
+
+  # ---------- PROCESS MONITORING ----------
+  # See what processes are running inside each container
+  processAgent:
+    enabled: true
+    processCollection: true
+
+# ---------- CLUSTER AGENT ----------
+# A single pod that collects cluster-level metrics
+# (how many pods, deployments, services, etc.)
+clusterAgent:
+  enabled: true
+
+# ---------- RESOURCE LIMITS ----------
+# Keep the agent lightweight on your laptop
+agents:
+  containers:
+    agent:
+      resources:
+        requests:
+          memory: "128Mi"
+          cpu: "100m"
+        limits:
+          memory: "256Mi"
+          cpu: "200m"

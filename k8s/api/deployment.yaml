@@ -1,17 +1,18 @@
-# deployment.yaml -- FastAPI Deployment
+# deployment.yaml -- FastAPI Deployment (with Datadog monitoring)
 #
 # Key difference from PostgreSQL deployment: replicas: 2
 # This means K8s runs TWO copies of FastAPI simultaneously.
-#
-# Why? If one crashes, the other keeps serving traffic.
-# The Service (next file) load-balances between both copies.
-# You couldn't easily do this with Docker Compose.
 #
 # Also notice the liveness and readiness probes:
 #   - readinessProbe: "Is this pod ready to receive traffic?"
 #     K8s won't send traffic until this passes.
 #   - livenessProbe: "Is this pod still alive?"
 #     If this fails, K8s kills and restarts the pod.
+#
+# DATADOG ADDITIONS:
+#   - Annotations tell the Datadog Agent "this pod has logs and traces"
+#   - Environment variables tell ddtrace where to send traces
+#   - DD_SERVICE/ENV/VERSION appear as tags in Datadog dashboards
 
 apiVersion: apps/v1
 kind: Deployment
@@ -20,8 +21,13 @@ metadata:
   namespace: counter-app
   labels:
     app: counter-api
+    # Datadog uses these labels for Unified Service Tagging
+    # This links metrics, traces, and logs together in the UI
+    tags.datadoghq.com/env: "local"
+    tags.datadoghq.com/service: "counter-api"
+    tags.datadoghq.com/version: "1.0.0"
 spec:
-  replicas: 2                  # Two copies for high availability
+  replicas: 2
   selector:
     matchLabels:
       app: counter-api
@@ -29,11 +35,17 @@ spec:
     metadata:
       labels:
         app: counter-api
+        tags.datadoghq.com/env: "local"
+        tags.datadoghq.com/service: "counter-api"
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        # Tell Datadog Agent to collect logs from this pod
+        ad.datadoghq.com/counter-api.logs: '[{"source":"python","service":"counter-api"}]'
     spec:
       containers:
         - name: counter-api
-          image: counter-app-api:latest    # The image we built with Docker
-          imagePullPolicy: Never           # Use local image, don't pull from internet
+          image: counter-app-api:latest
+          imagePullPolicy: Never
 
           ports:
             - containerPort: 8000
@@ -43,15 +55,45 @@ spec:
             - configMapRef:
                 name: api-config
 
-          # Load password from Secret
           env:
+            # Database password from Secret
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
 
-          # Is the app ready to receive requests?
+            # ---- DATADOG ENVIRONMENT VARIABLES ----
+
+            # Service name shown in Datadog APM
+            - name: DD_SERVICE
+              value: "counter-api"
+
+            # Environment tag (local, staging, production)
+            - name: DD_ENV
+              value: "local"
+
+            # Version tag -- helps track deployments
+            - name: DD_VERSION
+              value: "1.0.0"
+
+            # Where to send traces -- the Datadog Agent's address
+            # "status.hostIP" = the IP of the node this pod runs on
+            # The Agent runs on every node (DaemonSet), so this always works
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+
+            # Enable trace/log correlation
+            # When you click a trace in Datadog, it shows the related logs
+            - name: DD_LOGS_INJECTION
+              value: "true"
+
+            # Enable profiling (see which Python functions are slow)
+            - name: DD_PROFILING_ENABLED
+              value: "true"
+
           readinessProbe:
             httpGet:
               path: /health
@@ -59,7 +101,6 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
 
-          # Is the app still alive?
           livenessProbe:
             httpGet:
               path: /health
@@ -69,8 +110,8 @@ spec:
 
           resources:
             requests:
-              memory: "128Mi"
+              memory: "256Mi"
               cpu: "100m"
             limits:
-              memory: "256Mi"
+              memory: "512Mi"
               cpu: "500m"
