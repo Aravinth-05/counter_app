@@ -1,0 +1,29 @@
+# pvc.yaml -- PersistentVolumeClaim
+#
+# A PVC is a request for storage.
+# "Hey Kubernetes, I need 1GB of disk space."
+# K8s finds available storage and gives it to you.
+#
+# Why do we need this? Containers are ephemeral (temporary).
+# If a PostgreSQL pod dies and K8s creates a new one,
+# the data inside the old container is GONE.
+#
+# A PVC is like an external hard drive:
+#   - The container can die and be replaced
+#   - The disk stays, with all the data
+#   - The new container mounts the same disk and picks up where it left off
+#
+# In docker-compose, we did this with "volumes: postgres_data".
+# Same concept, different syntax.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: counter-app
+spec:
+  accessModes:
+    - ReadWriteOnce       # Only one pod can write at a time
+  resources:
+    requests:
+      storage: 1Gi        # 1 gigabyte of disk space

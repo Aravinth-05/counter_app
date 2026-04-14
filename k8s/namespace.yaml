@@ -1,0 +1,13 @@
+# namespace.yaml
+#
+# A Namespace is like a folder in Kubernetes.
+# All our resources (pods, services, etc.) live inside this namespace.
+# This keeps our counter-app separate from anything else running in K8s.
+#
+# Without a namespace, everything goes into "default" --
+# which gets messy fast when you have multiple apps.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: counter-app

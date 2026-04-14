@@ -1,0 +1,69 @@
+# deployment.yaml -- PostgreSQL Deployment
+#
+# A Deployment tells Kubernetes:
+#   "I want 1 copy of PostgreSQL running at all times."
+#
+# If the pod crashes, K8s automatically creates a new one.
+# This is the big upgrade from Docker Compose -- self-healing.
+#
+# Structure:
+#   Deployment
+#     └── manages a Pod
+#           └── runs a Container (postgres:16-alpine)
+#                 └── mounts the PVC for data
+#                 └── reads Secret for credentials
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: counter-app
+  labels:
+    app: postgres            # Label to identify this deployment
+spec:
+  replicas: 1                # Only 1 copy of the database (never scale databases this way)
+  selector:
+    matchLabels:
+      app: postgres          # "Manage pods that have label app=postgres"
+  template:                  # Template for the pods this deployment creates
+    metadata:
+      labels:
+        app: postgres        # The pod gets this label (must match selector above)
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+
+          # Read credentials from the Secret we created
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+
+          # Mount the PVC at PostgreSQL's data directory
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+            # Mount init.sql so it runs on first startup
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+
+          # Health check: K8s pings PostgreSQL every 10 seconds
+          # If it fails 3 times, K8s restarts the pod
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "counter_user", "-d", "counter_db"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+        # Create a volume from the init.sql content
+        - name: init-script
+          configMap:
+            name: postgres-init

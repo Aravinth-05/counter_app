@@ -1,0 +1,19 @@
+# configmap.yaml -- FastAPI configuration
+#
+# ConfigMaps store non-sensitive configuration.
+# Passwords go in Secrets. Everything else goes in ConfigMaps.
+#
+# Notice DB_HOST is "postgres-service" -- that's the Service name
+# we created for PostgreSQL. K8s DNS resolves this automatically.
+# Same idea as Docker Compose where we used "db" as the hostname.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: counter-app
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "counter_db"
+  DB_USER: "counter_user"

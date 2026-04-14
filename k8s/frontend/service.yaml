@@ -1,0 +1,27 @@
+# service.yaml -- Streamlit Frontend Service
+#
+# This one is different: type NodePort (not ClusterIP).
+#
+# ClusterIP = only reachable inside the cluster (other pods)
+# NodePort  = reachable from your machine (your browser)
+#
+# NodePort picks a port in the range 30000-32767 and maps it
+# to the container's port. So you access Streamlit via:
+#   http://localhost:30001
+#
+# In a real cloud setup, you'd use a LoadBalancer or Ingress instead.
+# NodePort is fine for local development.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: counter-frontend
+  namespace: counter-app
+spec:
+  type: NodePort
+  selector:
+    app: counter-frontend
+  ports:
+    - port: 8501
+      targetPort: 8501
+      nodePort: 30001          # Access via http://localhost:30001

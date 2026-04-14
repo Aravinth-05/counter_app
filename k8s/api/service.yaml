@@ -1,0 +1,24 @@
+# service.yaml -- FastAPI Service
+#
+# ClusterIP service for the API.
+# The frontend (Streamlit) connects to "counter-api:8000" inside the cluster.
+#
+# We have 2 API pods running (replicas: 2 in the deployment).
+# This Service automatically load-balances between them:
+#   Request 1 -> Pod A
+#   Request 2 -> Pod B
+#   Request 3 -> Pod A
+#   ...and so on
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: counter-api
+  namespace: counter-app
+spec:
+  type: ClusterIP
+  selector:
+    app: counter-api
+  ports:
+    - port: 8000
+      targetPort: 8000

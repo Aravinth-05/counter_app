@@ -1,0 +1,23 @@
+# init-configmap.yaml
+#
+# In Docker Compose, we mounted init.sql as a file.
+# In K8s, we store file contents in a ConfigMap and mount that into the pod.
+# Same result, different mechanism.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: counter-app
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS counters (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(50) UNIQUE NOT NULL,
+        value INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    INSERT INTO counters (name, value)
+    VALUES ('main', 0)
+    ON CONFLICT (name) DO NOTHING;

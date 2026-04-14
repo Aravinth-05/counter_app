@@ -1,0 +1,45 @@
+# deployment.yaml -- Streamlit Frontend Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter-frontend
+  namespace: counter-app
+  labels:
+    app: counter-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: counter-frontend
+  template:
+    metadata:
+      labels:
+        app: counter-frontend
+    spec:
+      containers:
+        - name: counter-frontend
+          image: counter-app-frontend:latest
+          imagePullPolicy: Never             # Use local image
+
+          ports:
+            - containerPort: 8501
+
+          envFrom:
+            - configMapRef:
+                name: frontend-config
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8501
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

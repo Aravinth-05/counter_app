@@ -1,0 +1,76 @@
+# deployment.yaml -- FastAPI Deployment
+#
+# Key difference from PostgreSQL deployment: replicas: 2
+# This means K8s runs TWO copies of FastAPI simultaneously.
+#
+# Why? If one crashes, the other keeps serving traffic.
+# The Service (next file) load-balances between both copies.
+# You couldn't easily do this with Docker Compose.
+#
+# Also notice the liveness and readiness probes:
+#   - readinessProbe: "Is this pod ready to receive traffic?"
+#     K8s won't send traffic until this passes.
+#   - livenessProbe: "Is this pod still alive?"
+#     If this fails, K8s kills and restarts the pod.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter-api
+  namespace: counter-app
+  labels:
+    app: counter-api
+spec:
+  replicas: 2                  # Two copies for high availability
+  selector:
+    matchLabels:
+      app: counter-api
+  template:
+    metadata:
+      labels:
+        app: counter-api
+    spec:
+      containers:
+        - name: counter-api
+          image: counter-app-api:latest    # The image we built with Docker
+          imagePullPolicy: Never           # Use local image, don't pull from internet
+
+          ports:
+            - containerPort: 8000
+
+          # Load non-sensitive config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: api-config
+
+          # Load password from Secret
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+          # Is the app ready to receive requests?
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          # Is the app still alive?
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

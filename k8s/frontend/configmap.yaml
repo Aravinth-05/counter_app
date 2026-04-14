@@ -1,0 +1,13 @@
+# configmap.yaml -- Streamlit configuration
+#
+# Tells the Streamlit frontend where to find the FastAPI backend.
+# "counter-api" is the Service name from api/service.yaml.
+# K8s DNS resolves it to the API pods automatically.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: counter-app
+data:
+  API_URL: "http://counter-api:8000"

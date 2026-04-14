@@ -1,0 +1,32 @@
+# service.yaml -- PostgreSQL Service
+#
+# A Service gives pods a stable network name.
+#
+# Problem: Pods are temporary. When a pod dies and K8s creates a new one,
+# it gets a new IP address. So FastAPI can't hardcode "connect to 10.0.0.5"
+# because that IP might change tomorrow.
+#
+# Solution: A Service. It has a permanent name: "postgres-service".
+# FastAPI connects to "postgres-service:5432" and K8s routes it
+# to whichever pod is currently running PostgreSQL.
+#
+# Think of it like a phone extension at a company:
+#   - Employees (pods) come and go
+#   - But extension 5432 (service) always reaches the DBA desk
+#
+# ClusterIP = only accessible inside the cluster (other pods can reach it,
+# but you can't from your browser). That's correct -- only FastAPI needs
+# to reach PostgreSQL, not you.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: counter-app
+spec:
+  type: ClusterIP            # Internal only
+  selector:
+    app: postgres             # Route traffic to pods with label app=postgres
+  ports:
+    - port: 5432              # The port the service listens on
+      targetPort: 5432        # The port the container listens on
