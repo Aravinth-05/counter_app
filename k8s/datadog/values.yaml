@@ -17,9 +17,13 @@
 #   helm install datadog-agent datadog/datadog -f k8s/datadog/values.yaml -n counter-app
 
 datadog:
-  # Your Datadog API key (get it from https://app.datadoghq.com/organization-settings/api-keys)
+  # Your Datadog API key (get it from https://ap1.datadoghq.com/organization-settings/api-keys)
   # REPLACE THIS with your actual key
   apiKey: "YOUR_DATADOG_API_KEY_HERE"
+
+  # CRITICAL: Your Datadog account is on the AP1 (Asia-Pacific) site.
+  # Without this, the agent sends data to the US site and gets 403 errors.
+  site: "ap1.datadoghq.com"
 
   # Tag everything with our app name and environment
   tags:
@@ -27,33 +31,31 @@ datadog:
     - "project:counter-app"
 
   # ---------- APM (Application Performance Monitoring) ----------
-  # Traces: see how long each API request takes, which endpoints are slow,
-  # and how the request flows from Streamlit -> FastAPI -> PostgreSQL
   apm:
-    portEnabled: true          # Listen for traces on port 8126
+    portEnabled: true
     enabled: true
 
   # ---------- LOG COLLECTION ----------
-  # Collects stdout/stderr from all containers
-  # You'll see FastAPI logs and PostgreSQL logs in Datadog
   logs:
     enabled: true
-    containerCollectAll: true  # Collect from ALL containers, not just tagged ones
+    containerCollectAll: true
 
   # ---------- PROCESS MONITORING ----------
-  # See what processes are running inside each container
   processAgent:
     enabled: true
     processCollection: true
 
+  # ---------- KUBELET TLS ----------
+  # Docker Desktop's kubelet doesn't have proper TLS certs.
+  # Without this, the agent can't collect container metrics.
+  kubelet:
+    tlsVerify: false
+
 # ---------- CLUSTER AGENT ----------
-# A single pod that collects cluster-level metrics
-# (how many pods, deployments, services, etc.)
 clusterAgent:
   enabled: true
 
 # ---------- RESOURCE LIMITS ----------
-# Keep the agent lightweight on your laptop
 agents:
   containers:
     agent:
